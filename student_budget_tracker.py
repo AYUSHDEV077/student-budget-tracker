@@ -1,6 +1,6 @@
 """
-Cyberpunk Student Budget Tracker (SQLite + Pandas + Streamlit + Plotly)
-=======================================================================
+Cyberpunk Student Budget Tracker (SQLite + Pandas + Streamlit)
+==============================================================
 A full-stack student expense tracker combining a SQLite3 & Pandas backend with
 a dark-mode cyberpunk Streamlit interface (#0D1117 deep slate, #00F0FF neon cyan,
 and #FF0055 hot pink).
@@ -19,8 +19,22 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Union
 
 import pandas as pd
-import plotly.graph_objects as go
 import streamlit as st
+
+# Optional chart libraries with graceful fallbacks
+try:
+    import plotly.graph_objects as go
+
+    HAS_PLOTLY = True
+except ImportError:
+    HAS_PLOTLY = False
+
+try:
+    import altair as alt
+
+    HAS_ALTAIR = True
+except ImportError:
+    HAS_ALTAIR = False
 
 # ---------------------------------------------------------------------------
 # Constants & Cyberpunk Theme Palette
@@ -297,7 +311,7 @@ def seed_demo_data(db_path: Union[str, Path] = DEFAULT_DB_PATH) -> int:
 
 
 # ---------------------------------------------------------------------------
-# Cyberpunk UI Styling & Components (Streamlit + Plotly)
+# Cyberpunk UI Styling & Components (Streamlit + Plotly/Altair)
 # ---------------------------------------------------------------------------
 def inject_cyberpunk_css() -> None:
     """Inject custom CSS for the #0D1117 / #00F0FF / #FF0055 cyberpunk aesthetic."""
@@ -460,90 +474,103 @@ def inject_cyberpunk_css() -> None:
     )
 
 
-def build_category_donut_chart(category_df: pd.DataFrame) -> go.Figure:
-    """Build an interactive cyberpunk Plotly donut chart for category spending."""
+def render_category_chart(category_df: pd.DataFrame) -> None:
+    """Render category spending breakdown with Plotly, Altair, or native Streamlit bar chart."""
     if category_df.empty:
-        fig = go.Figure()
-        fig.add_annotation(
-            text="NO EXPENSES RECORDED",
-            x=0.5,
-            y=0.5,
-            showarrow=False,
-            font=dict(
-                family="Orbitron, JetBrains Mono, monospace",
-                size=16,
-                color=TEXT_MUTED,
-            ),
+        st.info("No expenses recorded for this period.")
+        return
+
+    if HAS_PLOTLY:
+        grand_total = float(category_df["total_spent"].sum())
+        fig = go.Figure(
+            data=[
+                go.Pie(
+                    labels=category_df["category"],
+                    values=category_df["total_spent"],
+                    hole=0.62,
+                    marker=dict(
+                        colors=CYBERPUNK_CHART_PALETTE[: len(category_df)],
+                        line=dict(color=BG_DEEP_SLATE, width=2.5),
+                    ),
+                    textinfo="label+percent",
+                    textposition="outside",
+                    textfont=dict(
+                        family="JetBrains Mono, monospace",
+                        size=12,
+                        color=TEXT_PRIMARY,
+                    ),
+                    customdata=category_df[["transaction_count", "percentage_of_total"]],
+                    hovertemplate=(
+                        "<b>%{label}</b><br>"
+                        "Total Spent: $%{value:,.2f}<br>"
+                        "Share: %{customdata[1]:.2f}%<br>"
+                        "Transactions: %{customdata[0]}<extra></extra>"
+                    ),
+                )
+            ]
         )
         fig.update_layout(
             paper_bgcolor=BG_DEEP_SLATE,
             plot_bgcolor=BG_DEEP_SLATE,
-            height=380,
-            margin=dict(t=20, b=20, l=20, r=20),
-            xaxis=dict(visible=False),
-            yaxis=dict(visible=False),
-        )
-        return fig
-
-    grand_total = float(category_df["total_spent"].sum())
-
-    fig = go.Figure(
-        data=[
-            go.Pie(
-                labels=category_df["category"],
-                values=category_df["total_spent"],
-                hole=0.62,
-                marker=dict(
-                    colors=CYBERPUNK_CHART_PALETTE[: len(category_df)],
-                    line=dict(color=BG_DEEP_SLATE, width=2.5),
-                ),
-                textinfo="label+percent",
-                textposition="outside",
-                textfont=dict(
-                    family="JetBrains Mono, monospace",
-                    size=12,
-                    color=TEXT_PRIMARY,
-                ),
-                customdata=category_df[["transaction_count", "percentage_of_total"]],
-                hovertemplate=(
-                    "<b>%{label}</b><br>"
-                    "Total Spent: $%{value:,.2f}<br>"
-                    "Share: %{customdata[1]:.2f}%<br>"
-                    "Transactions: %{customdata[0]}<extra></extra>"
-                ),
-            )
-        ]
-    )
-
-    fig.update_layout(
-        paper_bgcolor=BG_DEEP_SLATE,
-        plot_bgcolor=BG_DEEP_SLATE,
-        font=dict(family="JetBrains Mono, monospace", color=TEXT_PRIMARY),
-        showlegend=True,
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=-0.22,
-            xanchor="center",
-            x=0.5,
-            font=dict(size=11, color=TEXT_PRIMARY),
-        ),
-        annotations=[
-            dict(
-                text=(
-                    f"<span style='color:{TEXT_MUTED};font-size:11px;'>TOTAL</span><br>"
-                    f"<b style='color:{NEON_CYAN};font-size:18px;'>${grand_total:,.2f}</b>"
-                ),
+            font=dict(family="JetBrains Mono, monospace", color=TEXT_PRIMARY),
+            showlegend=True,
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=-0.22,
+                xanchor="center",
                 x=0.5,
-                y=0.5,
-                font=dict(family="Orbitron, monospace", size=14, color=NEON_CYAN),
-                showarrow=False,
+                font=dict(size=11, color=TEXT_PRIMARY),
+            ),
+            annotations=[
+                dict(
+                    text=(
+                        f"<span style='color:{TEXT_MUTED};font-size:11px;'>TOTAL</span><br>"
+                        f"<b style='color:{NEON_CYAN};font-size:18px;'>${grand_total:,.2f}</b>"
+                    ),
+                    x=0.5,
+                    y=0.5,
+                    font=dict(family="Orbitron, monospace", size=14, color=NEON_CYAN),
+                    showarrow=False,
+                )
+            ],
+            height=400,
+            margin=dict(t=30, b=60, l=20, r=20),
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    elif HAS_ALTAIR:
+        chart = (
+            alt.Chart(category_df)
+            .mark_arc(innerRadius=65, stroke=BG_DEEP_SLATE, strokeWidth=2)
+            .encode(
+                theta=alt.Theta(field="total_spent", type="quantitative"),
+                color=alt.Color(
+                    field="category",
+                    type="nominal",
+                    scale=alt.Scale(range=CYBERPUNK_CHART_PALETTE[: len(category_df)]),
+                    legend=alt.Legend(
+                        orient="bottom",
+                        title=None,
+                        labelColor=TEXT_PRIMARY,
+                        labelFont="JetBrains Mono, monospace",
+                    ),
+                ),
+                tooltip=[
+                    alt.Tooltip("category:N", title="Category"),
+                    alt.Tooltip("total_spent:Q", title="Total ($)", format="$.2f"),
+                    alt.Tooltip("percentage_of_total:Q", title="Share (%)", format=".1f"),
+                ],
             )
-        ],
-        height=400,
-        margin=dict(t=30, b=60, l=20, r=20),
-    )
-    return fig
+            .properties(height=380, background=BG_DEEP_SLATE)
+            .configure_view(strokeWidth=0)
+        )
+        st.altair_chart(chart, use_container_width=True)
+    else:
+        st.bar_chart(
+            category_df.set_index("category")["total_spent"],
+            color=NEON_CYAN,
+            height=320,
+        )
 
 
 def filter_transactions(
@@ -780,7 +807,7 @@ def render_streamlit_app(db_path: Union[str, Path] = DEFAULT_DB_PATH) -> None:
         )
 
     # -----------------------------------------------------------------------
-    # 3. Interactive Plotly Donut Chart & 4. Searchable Transaction Table
+    # 3. Interactive Chart & 4. Searchable Transaction Table
     # -----------------------------------------------------------------------
     left_col, right_col = st.columns([5, 7], gap="large")
 
@@ -792,8 +819,7 @@ def render_streamlit_app(db_path: Union[str, Path] = DEFAULT_DB_PATH) -> None:
         category_df = calculate_spending_by_category(
             db_path=db_path, year_month=selected_month
         )
-        donut_fig = build_category_donut_chart(category_df)
-        st.plotly_chart(donut_fig, use_container_width=True)
+        render_category_chart(category_df)
 
         if not category_df.empty:
             st.dataframe(
