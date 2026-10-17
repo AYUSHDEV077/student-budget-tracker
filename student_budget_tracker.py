@@ -6,26 +6,21 @@ a dark-mode cyberpunk Streamlit interface (#0D1117 deep slate, #00F0FF neon cyan
 and #FF0055 hot pink).
 
 Run with:
-    streamlit run student_budget_tracker.py
+    python -m streamlit run student_budget_tracker.py
 """
 
 from __future__ import annotations
 
 import sqlite3
+import sys
 from contextlib import closing
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Union
 
 import pandas as pd
-
-try:
-    import plotly.graph_objects as go
-    import streamlit as st
-
-    STREAMLIT_AVAILABLE = True
-except ImportError:
-    STREAMLIT_AVAILABLE = False
+import plotly.graph_objects as go
+import streamlit as st
 
 # ---------------------------------------------------------------------------
 # Constants & Cyberpunk Theme Palette
@@ -97,18 +92,7 @@ def add_expense(
     description: str = "",
     db_path: Union[str, Path] = DEFAULT_DB_PATH,
 ) -> int:
-    """Validate and insert a new expense record into the database.
-
-    Args:
-        expense_date: Expense date as 'YYYY-MM-DD' string or datetime.date object.
-        category: Spending category (e.g., 'Groceries', 'Textbooks & Supplies').
-        amount: Expense amount (must be non-negative).
-        description: Optional short note describing the expense.
-        db_path: Path to the SQLite database file.
-
-    Returns:
-        The auto-generated integer ID of the newly inserted expense.
-    """
+    """Validate and insert a new expense record into the database."""
     if isinstance(expense_date, (date, datetime)):
         parsed_date = expense_date.strftime("%Y-%m-%d")
     else:
@@ -152,15 +136,7 @@ def delete_expense(
     expense_id: Union[int, Sequence[int]],
     db_path: Union[str, Path] = DEFAULT_DB_PATH,
 ) -> int:
-    """Delete one or more expense records by ID.
-
-    Args:
-        expense_id: A single integer expense ID or a sequence of integer IDs.
-        db_path: Path to the SQLite database file.
-
-    Returns:
-        Number of rows deleted.
-    """
+    """Delete one or more expense records by ID."""
     init_db(db_path)
 
     if isinstance(expense_id, int):
@@ -330,7 +306,6 @@ def inject_cyberpunk_css() -> None:
         <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Orbitron:wght@600;800&display=swap');
 
-        /* Base App & Dark Slate Surfaces */
         .stApp {{
             background-color: {BG_DEEP_SLATE};
             color: {TEXT_PRIMARY};
@@ -348,7 +323,6 @@ def inject_cyberpunk_css() -> None:
             box-shadow: 4px 0 20px rgba(0, 240, 255, 0.08);
         }}
 
-        /* Neon Headings */
         h1, h2, h3, .cyber-title {{
             font-family: 'Orbitron', 'JetBrains Mono', sans-serif !important;
             letter-spacing: 1.5px;
@@ -378,7 +352,6 @@ def inject_cyberpunk_css() -> None:
             font-size: 0.88rem;
         }}
 
-        /* Cyberpunk Metric Cards */
         .cyber-card {{
             background: {BG_PANEL_SLATE};
             border: 1px solid rgba(0, 240, 255, 0.45);
@@ -428,7 +401,6 @@ def inject_cyberpunk_css() -> None:
             opacity: 0.85;
         }}
 
-        /* Progress Bar Track */
         .cyber-progress-wrap {{
             background: #161B22;
             border: 1px solid rgba(0, 240, 255, 0.3);
@@ -444,7 +416,6 @@ def inject_cyberpunk_css() -> None:
             transition: width 0.3s ease;
         }}
 
-        /* Section Panels */
         .cyber-section-header {{
             color: {NEON_CYAN};
             font-family: 'Orbitron', monospace;
@@ -456,7 +427,6 @@ def inject_cyberpunk_css() -> None:
             margin-bottom: 0.9rem;
         }}
 
-        /* Buttons */
         .stButton > button, .stFormSubmitButton > button {{
             background: linear-gradient(90deg, rgba(0, 240, 255, 0.16) 0%, rgba(255, 0, 85, 0.16) 100%) !important;
             color: {NEON_CYAN} !important;
@@ -477,7 +447,6 @@ def inject_cyberpunk_css() -> None:
             box-shadow: 0 0 16px rgba(255, 0, 85, 0.6) !important;
         }}
 
-        /* Inputs & Dataframes */
         div[data-baseweb="select"] > div,
         div[data-baseweb="input"] > div,
         .stDateInput > div > div {{
@@ -491,7 +460,7 @@ def inject_cyberpunk_css() -> None:
     )
 
 
-def build_category_donut_chart(category_df: pd.DataFrame) -> "go.Figure":
+def build_category_donut_chart(category_df: pd.DataFrame) -> go.Figure:
     """Build an interactive cyberpunk Plotly donut chart for category spending."""
     if category_df.empty:
         fig = go.Figure()
@@ -610,7 +579,7 @@ def render_streamlit_app(db_path: Union[str, Path] = DEFAULT_DB_PATH) -> None:
     """Render the complete Cyberpunk Student Budget Tracker Streamlit application."""
     st.set_page_config(
         page_title="NEON LEDGER // Student Budget Tracker",
-        page_icon="🎼",
+        page_icon="⚡",
         layout="wide",
         initial_sidebar_state="expanded",
     )
@@ -631,7 +600,7 @@ def render_streamlit_app(db_path: Union[str, Path] = DEFAULT_DB_PATH) -> None:
         st.divider()
 
         st.markdown(
-            f"<div class='cyber-section-header'>01 // BUDGET PARAMETERS</div>",
+            "<div class='cyber-section-header'>01 // BUDGET PARAMETERS</div>",
             unsafe_allow_html=True,
         )
         monthly_budget = st.number_input(
@@ -664,7 +633,7 @@ def render_streamlit_app(db_path: Union[str, Path] = DEFAULT_DB_PATH) -> None:
 
         st.divider()
         st.markdown(
-            f"<div class='cyber-section-header'>02 // LOG NEW EXPENSE</div>",
+            "<div class='cyber-section-header'>02 // LOG NEW EXPENSE</div>",
             unsafe_allow_html=True,
         )
 
@@ -688,7 +657,7 @@ def render_streamlit_app(db_path: Union[str, Path] = DEFAULT_DB_PATH) -> None:
                 placeholder="e.g., Campus coffee & lab notebook",
             )
             submitted = st.form_submit_button(
-                " LOG EXPENSE", use_container_width=True
+                "⚡ LOG EXPENSE", use_container_width=True
             )
 
             if submitted:
@@ -702,7 +671,7 @@ def render_streamlit_app(db_path: Union[str, Path] = DEFAULT_DB_PATH) -> None:
                     )
                     st.toast(
                         f"Logged #{new_id}: ${input_amount:.2f} in {input_category}",
-                        icon="❤️",
+                        icon="⚡",
                     )
                     st.rerun()
                 except ValueError as err:
@@ -710,7 +679,7 @@ def render_streamlit_app(db_path: Union[str, Path] = DEFAULT_DB_PATH) -> None:
 
         if all_df_initial.empty:
             st.divider()
-            if st.button(" LOAD DEMO STUDENT DATA", use_container_width=True):
+            if st.button("⚡ LOAD DEMO STUDENT DATA", use_container_width=True):
                 seed_demo_data(db_path)
                 st.rerun()
 
@@ -749,7 +718,7 @@ def render_streamlit_app(db_path: Union[str, Path] = DEFAULT_DB_PATH) -> None:
             <div class="cyber-card">
                 <div class="cyber-card-label">Total Spent ({selected_month})</div>
                 <div class="cyber-card-value">${total_spent:,.2f}</div>
-                <div class="cyber-card-sub"> {utilization_pct:.1f}% of monthly allocation used</div>
+                <div class="cyber-card-sub">⚡ {utilization_pct:.1f}% of monthly allocation used</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -944,26 +913,8 @@ def render_streamlit_app(db_path: Union[str, Path] = DEFAULT_DB_PATH) -> None:
                         st.rerun()
 
 
+# ---------------------------------------------------------------------------
+# Execution Entry Point
+# ---------------------------------------------------------------------------
 if __name__ == "__main__":
-    if STREAMLIT_AVAILABLE and hasattr(st, "runtime") and st.runtime.exists():
-        render_streamlit_app()
-    elif STREAMLIT_AVAILABLE:
-        # Allows `streamlit run student_budget_tracker.py` even in older Streamlit versions
-        render_streamlit_app()
-    else:
-        # Fallback CLI verification when run outside Streamlit
-        import tempfile
-
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            demo_db = Path(tmp_dir) / "demo_student_budget.db"
-            init_db(demo_db)
-            seed_demo_data(demo_db)
-
-            print("=== All Recorded Student Expenses ===")
-            print(fetch_all_expenses(demo_db).to_string(index=False))
-
-            print("\n=== Spending Breakdown by Category ===")
-            print(calculate_spending_by_category(demo_db).to_string(index=False))
-
-            print("\n=== Monthly Budget Status ($800.00) ===")
-            print(check_monthly_budget(800.00, db_path=demo_db))
+    render_streamlit_app()
